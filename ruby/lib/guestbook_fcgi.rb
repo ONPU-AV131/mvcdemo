@@ -26,19 +26,21 @@ class Record
     @@config = GuestBookConfig.instance
 
     def initialize(params)
-        check_missing_fields(params)
+        check_missing_fields params
 
         unless have_missing_fields?
-            @new_record = @@config.guest_records_columns.map { |column| params[column] }
-            return @new_record
+            set_fields params
         end
-        return nil
+    end
+
+    def [](key)
+        self.instance_variable_get("@#{key}")
     end
 
     def save
         unless have_missing_fields?
             CSV.open(@@config.guest_records_path, "ab") do |csv|
-                csv << @new_record
+                csv << self.to_a
             end
         end
     end
@@ -51,8 +53,9 @@ class Record
         records = []
         if File.exists? @@config.guest_records_path
             CSV.foreach @@config.guest_records_path do |row|
-                record = Hash[ @@config.guest_records_columns.each_index.map {|i| [@@config.guest_records_columns[i], row[i]]} ]
-                records.push record
+                params =  Hash[ @@config.guest_records_columns.each_index.map {|i| [@@config.guest_records_columns[i], row[i]]} ]
+                record = Record.new(params)
+                records.push record unless record.have_missing_fields?
             end
         end
         records
@@ -66,6 +69,16 @@ class Record
                 @missing_fields.push column
             end
         end
+    end
+
+    def set_fields(params)
+        @@config.guest_records_columns.each do |column|
+            self.instance_variable_set("@#{column}", params[column])
+        end
+    end
+
+    def to_a
+        @@config.guest_records_columns.map {|column| self[column]}
     end
 end
 
