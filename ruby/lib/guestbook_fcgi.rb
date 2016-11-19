@@ -42,6 +42,9 @@ class Record
         end
     end
 
+    def have_missing_fields?
+        !@missing_fields.empty?
+    end
 
     def self.all
         records = []
@@ -57,27 +60,19 @@ end
 
 
 class GuestbookApp
-    def initialize
-        @guest_records_path = '/srv/www/mvcdemo.onpu/private/guest_records.csv'
-        @guest_records_mandatory_columns = [:name, :email, :city, :country, :comments ]
-        @guest_records_optional_columns = [:state, :url]
-        @guest_records_columns = @guest_records_mandatory_columns + @guest_records_optional_columns
-    end
 
     def call(env)
-        p env
-
-        request = Rack::Request.new(env)
-        @params = Hash[ request.params.map {|k, v| [k.to_sym, v] }]
+        @env = env
+        @params = request_params
 
         @missing_fields = []
-        if env['REQUEST_METHOD'] == 'POST'
-             record = Record.new @params
-             if !record.have_errors
-               record.save
-             else
-                 @missing_fields = record.missing_fields
-             end
+        if is_POST_request?
+            record = Record.new @params
+            if record.have_missing_fields?
+                @missing_fields = record.missing_fields
+            else
+                record.save
+            end
         end
 
         @records = Record.all
@@ -91,5 +86,13 @@ class GuestbookApp
         ERB.new(template).result(binding)
     end
 
+    private
+    def request_params
+        request = Rack::Request.new(@env)
+        Hash[ request.params.map {|k, v| [k.to_sym, v] }]
+    end
 
+    def is_POST_request?
+        @env['REQUEST_METHOD'] == 'POST'
+    end
 end
