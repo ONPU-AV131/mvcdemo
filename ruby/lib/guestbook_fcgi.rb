@@ -6,6 +6,46 @@ require 'cgi'
 require 'csv'
 require 'json'
 
+class Record
+    attr_reader :have_errors
+
+    def initialize(params)
+        @have_errors = false
+        @errors = '<div class="alert alert-danger" role="alert"><strong>Ups, you missed these fields:</strong><ul>'
+
+        @guest_records_path = '/srv/www/mvcdemo.onpu/private/guest_records.csv'
+        @guest_records_mandatory_columns = [:name, :email, :city, :country, :comments ]
+        @guest_records_optional_columns = [:state, :url]
+        @guest_records_columns = @guest_records_mandatory_columns + @guest_records_optional_columns
+
+        @guest_records_mandatory_columns.each do |column|
+            if !params[column] || params[column].empty?
+                @have_errors = true
+                @errors += "<li>#{column.to_s.upcase}</li>"
+            end
+        end
+
+        unless have_errors
+            @new_record = @guest_records_columns.map { |column| params[column] }
+            return @new_record
+        end
+        return nil
+    end
+
+    def save
+        unless @have_errors
+            CSV.open(@guest_records_path, "ab") do |csv|
+                csv << @new_record
+            end
+        end
+    end
+
+    def errors
+        @have_errors ? @errors + "</ul></div>" : nil
+    end
+end
+
+
 class GuestbookApp
     def initialize
         @guest_records_path = '/srv/www/mvcdemo.onpu/private/guest_records.csv'
@@ -23,29 +63,17 @@ class GuestbookApp
 
 
         #####  Process params, save new records,  search for missing fields
-        have_errors = false
-        errors = '<div class="alert alert-danger" role="alert"><strong>Ups, you missed these fields:</strong><ul>'
         if env['REQUEST_METHOD'] == 'POST'
-            @guest_records_mandatory_columns.each do |column|
-                if !@params[column] || @params[column].empty?
-                    have_errors = true
-                    errors += "<li>#{column.to_s.upcase}</li>"
-                end
-            end
-
-
-            unless have_errors
-                new_record = @guest_records_columns.map { |column| @params[column] }
-                CSV.open(@guest_records_path, "ab") do |csv|
-                    csv << new_record
-                end
-            end
+             record = Record.new @params
+             if !record.have_errors
+               record.save
+             else
+               errors = record.errors
+             end
         end
-        errors += "</ul></div>"
-
 
         ##### output everything
-        response =  "#{head}<html><body>#{ errors if have_errors}#{form}#{records}#{footer}#{saved_form_values}</body></html>"
+        response =  "#{head}<html><body>#{ errors if errors}#{form}#{records}#{footer}#{saved_form_values}</body></html>"
         [200, {"Content-Type" => "text/html"}, [response]]
     end
 
