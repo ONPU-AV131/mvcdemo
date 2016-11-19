@@ -16,6 +16,14 @@
         </style>
     </head>
     <body>
+        <% unless @missing_fields.empty? %>
+            <div class="alert alert-danger" role="alert"><strong>Ups, you missed these fields:</strong><ul>
+               <% @missing_fields.each do |field| %>
+                   <li><%= field %></li>
+               <% end %>
+            </ul></div>
+        <% end %>
+
         <div class="container">
             <div class="">
                 <div class="panel panel-default">
@@ -77,6 +85,36 @@
                 </div>
             </div>
         </div>
+
+        <div>
+            <% @records.each do |record| %>
+                <div class='container'>
+                    <div class='panel panel-default'>
+                        <div class='panel-heading'>
+                            <h4 class='panel-title'>
+                                <% if record[:url].empty? %>
+                                    <%=record[:name]%> (<%=record[:email]%>)
+                                <% else %>
+                                    <a href=<%=record[:url]%>>  <%=record[:name]%> </a> (<%=record[:email]%>)
+                                <% end %>
+                            </h4>
+
+                            <strong> From: </strong> <%=record[:city]%>, <%=record[:state] + ',' unless record[:state].empty?%> <%=record[:country]%>
+                    </div>
+
+                    <div class='panel-body'>
+                        <%=record[:comments]%>
+                    </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    <% end %>
+
+    </div>
+
         <h6> (c) 2016, Vasyl Lytovchenko, mvcdemo.onpu</h6>
 
         <script>

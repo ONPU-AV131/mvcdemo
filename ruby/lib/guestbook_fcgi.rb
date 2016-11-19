@@ -8,7 +8,7 @@ require 'csv'
 require 'json'
 
 class Record
-    attr_reader :have_errors
+    attr_reader :have_errors, :missing_fields
     @@guest_records_path = '/srv/www/mvcdemo.onpu/private/guest_records.csv'
     @@guest_records_mandatory_columns = [:name, :email, :city, :country, :comments ]
     @@guest_records_optional_columns = [:state, :url]
@@ -16,13 +16,14 @@ class Record
 
     def initialize(params)
         @have_errors = false
-        @errors = '<div class="alert alert-danger" role="alert"><strong>Ups, you missed these fields:</strong><ul>'
+        @errors = ''
 
+        @missing_fields = []
 
         @@guest_records_mandatory_columns.each do |column|
             if !params[column] || params[column].empty?
                 @have_errors = true
-                @errors += "<li>#{column.to_s.upcase}</li>"
+                @missing_fields.push column
             end
         end
 
@@ -41,42 +42,16 @@ class Record
         end
     end
 
-    def errors
-        @have_errors ? @errors + "</ul></div>" : nil
-    end
 
     def self.all
-        records = "<div>"
+        records = []
         if File.exists? @@guest_records_path
             CSV.foreach @@guest_records_path do |row|
                 record = Hash[ @@guest_records_columns.each_index.map {|i| [@@guest_records_columns[i], row[i]]} ]
-                records += "<div class='container'>
-                    <div class='panel panel-default'>
-                    <div class='panel-heading'>
-                        <h4 class='panel-title'>
-                        "
-
-                        records += if record[:url].empty?
-                                       "#{record[:name]} (#{record[:email]})"
-                                   else
-                                       "<a href=#{record[:url]}>  #{record[:name]} </a> (#{record[:email]})"
-                                   end
-
-                        records +="</h4>
-                        <strong> From: </strong> #{record[:city]}, #{record[:state] + ',' unless record[:state].empty?} #{record[:country]}
-                    </div>
-
-                    <div class='panel-body'>
-                        #{record[:comments]}
-                    </div>
-                    </div>
-                </div>
-                "
+                records.push record
             end
         end
-        records += "</div>"
         records
-
     end
 end
 
@@ -95,20 +70,18 @@ class GuestbookApp
         request = Rack::Request.new(env)
         @params = Hash[ request.params.map {|k, v| [k.to_sym, v] }]
 
-
-
-        #####  Process params, save new records,  search for missing fields
+        @missing_fields = []
         if env['REQUEST_METHOD'] == 'POST'
              record = Record.new @params
              if !record.have_errors
                record.save
              else
-               errors = record.errors
+                 @missing_fields = record.missing_fields
              end
         end
 
-        ##### output everything
-        #response =  "#{head}<html><body>#{ errors if errors}#{form}#{records}#{footer}#{saved_form_values}</body></html>"
+        @records = Record.all
+
         response = render
         [200, {"Content-Type" => "text/html"}, [response]]
     end
@@ -118,10 +91,5 @@ class GuestbookApp
         ERB.new(template).result(binding)
     end
 
-    private
-
-    def records
-        Record.all
-    end
 
 end
