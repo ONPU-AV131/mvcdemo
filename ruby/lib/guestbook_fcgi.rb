@@ -7,36 +7,37 @@ require 'cgi'
 require 'csv'
 require 'json'
 
+class GuestBookConfig
+    include Singleton
+    attr_reader :guest_records_path, :guest_records_mandatory_columns, :guest_records_optional_columns, :guest_records_columns,:template_dir
+    def initialize
+        @guest_records_path = '/srv/www/mvcdemo.onpu/private/guest_records.csv'
+        @guest_records_mandatory_columns = [:name, :email, :city, :country, :comments ]
+        @guest_records_optional_columns = [:state, :url]
+        @guest_records_columns = @guest_records_mandatory_columns + @guest_records_optional_columns
+        @template_dir = '/srv/www/mvcdemo.onpu/ruby/templates'
+    end
+
+end
+
 class Record
-    attr_reader :have_errors, :missing_fields
-    @@guest_records_path = '/srv/www/mvcdemo.onpu/private/guest_records.csv'
-    @@guest_records_mandatory_columns = [:name, :email, :city, :country, :comments ]
-    @@guest_records_optional_columns = [:state, :url]
-    @@guest_records_columns = @@guest_records_mandatory_columns + @@guest_records_optional_columns
+    attr_reader :missing_fields
+
+    @@config = GuestBookConfig.instance
 
     def initialize(params)
-        @have_errors = false
-        @errors = ''
+        check_missing_fields(params)
 
-        @missing_fields = []
-
-        @@guest_records_mandatory_columns.each do |column|
-            if !params[column] || params[column].empty?
-                @have_errors = true
-                @missing_fields.push column
-            end
-        end
-
-        unless have_errors
-            @new_record = @@guest_records_columns.map { |column| params[column] }
+        unless have_missing_fields?
+            @new_record = @@config.guest_records_columns.map { |column| params[column] }
             return @new_record
         end
         return nil
     end
 
     def save
-        unless @have_errors
-            CSV.open(@@guest_records_path, "ab") do |csv|
+        unless have_missing_fields?
+            CSV.open(@@config.guest_records_path, "ab") do |csv|
                 csv << @new_record
             end
         end
@@ -48,13 +49,23 @@ class Record
 
     def self.all
         records = []
-        if File.exists? @@guest_records_path
-            CSV.foreach @@guest_records_path do |row|
-                record = Hash[ @@guest_records_columns.each_index.map {|i| [@@guest_records_columns[i], row[i]]} ]
+        if File.exists? @@config.guest_records_path
+            CSV.foreach @@config.guest_records_path do |row|
+                record = Hash[ @@config.guest_records_columns.each_index.map {|i| [@@config.guest_records_columns[i], row[i]]} ]
                 records.push record
             end
         end
         records
+    end
+
+    private
+    def check_missing_fields(params)
+        @missing_fields = []
+        @@config.guest_records_mandatory_columns.each do |column|
+            if !params[column] || params[column].empty?
+                @missing_fields.push column
+            end
+        end
     end
 end
 
@@ -82,7 +93,7 @@ class GuestbookApp
     end
 
     def render
-        template = File.read('/srv/www/mvcdemo.onpu/ruby/templates/guestbook.html.erb')
+        template = File.read(GuestBookConfig.instance.template_dir + '/guestbook.html.erb')
         ERB.new(template).result(binding)
     end
 
