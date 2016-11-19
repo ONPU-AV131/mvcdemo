@@ -46,36 +46,6 @@ class GuestbookApp
         end
         errors += "</ul></div>"
 
-        #####  Get saved records
-        records = "<div>"
-        if File.exists? @guest_records_path
-            CSV.foreach @guest_records_path do |row|
-                record = Hash[ @guest_records_columns.each_index.map {|i| [@guest_records_columns[i], row[i]]} ]
-                records += "<div class='container'>
-            <div class='panel panel-default'>
-            <div class='panel-heading'>
-                <h4 class='panel-title'>
-                "
-
-                records += if record[:url].empty?
-                               "#{record[:name]} (#{record[:email]})"
-                           else
-                               "<a href=#{record[:url]}>  #{record[:name]} </a> (#{record[:email]})"
-                           end
-
-                records +="</h4>
-                <strong> From: </strong> #{record[:city]}, #{record[:state] + ',' unless record[:state].empty?} #{record[:country]}
-            </div>
-
-            <div class='panel-body'>
-                #{record[:comments]}
-            </div>
-            </div>
-        </div>
-                "
-            end
-        end
-        records += "</div>"
 
         saved_form_values = "<script>";
         saved_form_values += 'saved_form_values = new Map(' + JSON.generate(params.map{|k,v| [k,v]}) + ');';
@@ -93,6 +63,39 @@ class GuestbookApp
     end
 
     private
+
+    def records
+        records = "<div>"
+        if File.exists? @guest_records_path
+            CSV.foreach @guest_records_path do |row|
+                record = Hash[ @guest_records_columns.each_index.map {|i| [@guest_records_columns[i], row[i]]} ]
+                records += "<div class='container'>
+                    <div class='panel panel-default'>
+                    <div class='panel-heading'>
+                        <h4 class='panel-title'>
+                        "
+
+                        records += if record[:url].empty?
+                                       "#{record[:name]} (#{record[:email]})"
+                                   else
+                                       "<a href=#{record[:url]}>  #{record[:name]} </a> (#{record[:email]})"
+                                   end
+
+                        records +="</h4>
+                        <strong> From: </strong> #{record[:city]}, #{record[:state] + ',' unless record[:state].empty?} #{record[:country]}
+                    </div>
+
+                    <div class='panel-body'>
+                        #{record[:comments]}
+                    </div>
+                    </div>
+                </div>
+                "
+            end
+        end
+        records += "</div>"
+        records
+    end
 
     def head
         '
