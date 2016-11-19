@@ -6,54 +6,68 @@ require 'cgi'
 require 'csv'
 require 'json'
 
-cgi = CGI.new
-params = Hash[ cgi.params.map {|k,v| [k.to_sym,CGI::escapeHTML(v.join)]}]
-puts cgi.header
+class GuestbookApp
 
-guest_records_path = '/srv/www/mvcdemo.onpu/private/guest_records.csv'
-guest_records_mandatory_columns = [:name, :email, :city, :country, :comments ]
-guest_records_optional_columns = [:state, :url]
-guest_records_columns = guest_records_mandatory_columns + guest_records_optional_columns
+    def call(env)
+        p env
 
-#####  Process params, save new records,  search for missing fields
-have_errors = false
-errors = '<div class="alert alert-danger" role="alert"><strong>Ups, you missed these fields:</strong><ul>'
-if ENV['REQUEST_METHOD'] == 'POST'
-    guest_records_mandatory_columns.each do |column|
-        if !params[column] || params[column].empty?
-            have_errors = true
-            errors += "<li>#{column.to_s.upcase}</li>"
+        #cgi = CGI.new
+        #params = Hash[ cgi.params.map {|k,v| [k.to_sym,CGI::escapeHTML(v.join)]}]
+        #puts cgi.header
+        #
+
+        request = Rack::Request.new(env)
+        #p request.body.read
+        #p request.params
+
+        params = Hash[ request.params.map {|k, v| [k.to_sym, v] }]
+        p params
+
+
+        guest_records_path = '/srv/www/mvcdemo.onpu/private/guest_records.csv'
+        guest_records_mandatory_columns = [:name, :email, :city, :country, :comments ]
+        guest_records_optional_columns = [:state, :url]
+        guest_records_columns = guest_records_mandatory_columns + guest_records_optional_columns
+
+        #####  Process params, save new records,  search for missing fields
+        have_errors = false
+        errors = '<div class="alert alert-danger" role="alert"><strong>Ups, you missed these fields:</strong><ul>'
+        if env['REQUEST_METHOD'] == 'POST'
+            guest_records_mandatory_columns.each do |column|
+                if !params[column] || params[column].empty?
+                    have_errors = true
+                    errors += "<li>#{column.to_s.upcase}</li>"
+                end
+            end
+
+
+            unless have_errors
+                new_record = guest_records_columns.map { |column| params[column] }
+                CSV.open(guest_records_path, "ab") do |csv|
+                    csv << new_record
+                end
+            end
         end
-    end
+        errors += "</ul></div>"
 
-
-    unless have_errors
-        new_record = guest_records_columns.map { |column| params[column] }
-        CSV.open(guest_records_path, "ab") do |csv|
-            csv << new_record
-        end
-    end
-end
-errors += "</ul></div>"
-
-#####  Get saved records
-records = "<div>"
-if File.exists? guest_records_path
-    CSV.foreach guest_records_path do |row|
-        record = Hash[ guest_records_columns.each_index.map {|i| [guest_records_columns[i], row[i]]} ]
-        records += "<div class='container'>
+        #####  Get saved records
+        records = "<div>"
+        if File.exists? guest_records_path
+            CSV.foreach guest_records_path do |row|
+                record = Hash[ guest_records_columns.each_index.map {|i| [guest_records_columns[i], row[i]]} ]
+                records += "<div class='container'>
             <div class='panel panel-default'>
             <div class='panel-heading'>
                 <h4 class='panel-title'>
-        "
+                "
 
-        records += if record[:url].empty?
-                       "#{record[:name]} (#{record[:email]})"
-                   else
-                       "<a href=#{record[:url]}>  #{record[:name]} </a> (#{record[:email]})"
-                   end
+                records += if record[:url].empty?
+                               "#{record[:name]} (#{record[:email]})"
+                           else
+                               "<a href=#{record[:url]}>  #{record[:name]} </a> (#{record[:email]})"
+                           end
 
-        records +="</h4>
+                records +="</h4>
                 <strong> From: </strong> #{record[:city]}, #{record[:state] + ',' unless record[:state].empty?} #{record[:country]}
             </div>
 
@@ -62,13 +76,13 @@ if File.exists? guest_records_path
             </div>
             </div>
         </div>
-        "
-    end
-end
-records += "</div>"
+                "
+            end
+        end
+        records += "</div>"
 
-###### header
-head = '
+        ###### header
+        head = '
 <head>
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
@@ -85,14 +99,14 @@ head = '
     }
     </style>
 </head>
-'
-header = ''
+        '
+        header = ''
 
-##### footer
-footer = '<h6> (c) 2016, Vasyl Lytovchenko, mvcdemo.onpu</h6>'
+        ##### footer
+        footer = '<h6> (c) 2016, Vasyl Lytovchenko, mvcdemo.onpu</h6>'
 
-##### form
-form = '
+        ##### form
+        form = '
 <div class="container">
     <div class="">
         <div class="panel panel-default">
@@ -154,16 +168,19 @@ form = '
         </div>
     </div>
 </div>
-'
-saved_form_values = "<script>";
-saved_form_values += 'saved_form_values = new Map(' + JSON.generate(params.map{|k,v| [k,v]}) + ');';
-saved_form_values += '
+        '
+        saved_form_values = "<script>";
+        saved_form_values += 'saved_form_values = new Map(' + JSON.generate(params.map{|k,v| [k,v]}) + ');';
+        saved_form_values += '
     function restoreValues(value, key, map){
         document.getElementById(key).setAttribute("value", value);
     }
     saved_form_values.forEach(restoreValues);
-'
-saved_form_values += "</script>"
+        '
+        saved_form_values += "</script>"
 
-##### output everything
-puts "#{head}<html><body>#{header}#{ errors if have_errors}#{form}#{records}#{footer}#{saved_form_values}</body></html>"
+        ##### output everything
+        response =  "#{head}<html><body>#{header}#{ errors if have_errors}#{form}#{records}#{footer}#{saved_form_values}</body></html>"
+        [200, {"Content-Type" => "text/html"}, [response]]
+    end
+end
