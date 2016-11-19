@@ -18,10 +18,7 @@ class GuestbookApp
         p env
 
         request = Rack::Request.new(env)
-        #p request.body.read
-        #p request.params
-
-        params = Hash[ request.params.map {|k, v| [k.to_sym, v] }]
+        @params = Hash[ request.params.map {|k, v| [k.to_sym, v] }]
 
 
 
@@ -30,7 +27,7 @@ class GuestbookApp
         errors = '<div class="alert alert-danger" role="alert"><strong>Ups, you missed these fields:</strong><ul>'
         if env['REQUEST_METHOD'] == 'POST'
             @guest_records_mandatory_columns.each do |column|
-                if !params[column] || params[column].empty?
+                if !@params[column] || @params[column].empty?
                     have_errors = true
                     errors += "<li>#{column.to_s.upcase}</li>"
                 end
@@ -38,7 +35,7 @@ class GuestbookApp
 
 
             unless have_errors
-                new_record = @guest_records_columns.map { |column| params[column] }
+                new_record = @guest_records_columns.map { |column| @params[column] }
                 CSV.open(@guest_records_path, "ab") do |csv|
                     csv << new_record
                 end
@@ -47,8 +44,16 @@ class GuestbookApp
         errors += "</ul></div>"
 
 
+        ##### output everything
+        response =  "#{head}<html><body>#{ errors if have_errors}#{form}#{records}#{footer}#{saved_form_values}</body></html>"
+        [200, {"Content-Type" => "text/html"}, [response]]
+    end
+
+    private
+
+    def saved_form_values
         saved_form_values = "<script>";
-        saved_form_values += 'saved_form_values = new Map(' + JSON.generate(params.map{|k,v| [k,v]}) + ');';
+        saved_form_values += 'saved_form_values = new Map(' + JSON.generate(@params.map{|k,v| [k,v]}) + ');';
         saved_form_values += '
     function restoreValues(value, key, map){
         document.getElementById(key).setAttribute("value", value);
@@ -56,13 +61,8 @@ class GuestbookApp
     saved_form_values.forEach(restoreValues);
         '
         saved_form_values += "</script>"
-
-        ##### output everything
-        response =  "#{head}<html><body>#{ errors if have_errors}#{form}#{records}#{footer}#{saved_form_values}</body></html>"
-        [200, {"Content-Type" => "text/html"}, [response]]
+        saved_form_values
     end
-
-    private
 
     def records
         records = "<div>"
