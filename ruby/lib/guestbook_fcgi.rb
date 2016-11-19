@@ -7,33 +7,29 @@ require 'csv'
 require 'json'
 
 class GuestbookApp
+    def initialize 
+        @guest_records_path = '/srv/www/mvcdemo.onpu/private/guest_records.csv'
+        @guest_records_mandatory_columns = [:name, :email, :city, :country, :comments ]
+        @guest_records_optional_columns = [:state, :url]
+        @guest_records_columns = @guest_records_mandatory_columns + @guest_records_optional_columns
+    end
 
     def call(env)
         p env
-
-        #cgi = CGI.new
-        #params = Hash[ cgi.params.map {|k,v| [k.to_sym,CGI::escapeHTML(v.join)]}]
-        #puts cgi.header
-        #
 
         request = Rack::Request.new(env)
         #p request.body.read
         #p request.params
 
         params = Hash[ request.params.map {|k, v| [k.to_sym, v] }]
-        p params
 
 
-        guest_records_path = '/srv/www/mvcdemo.onpu/private/guest_records.csv'
-        guest_records_mandatory_columns = [:name, :email, :city, :country, :comments ]
-        guest_records_optional_columns = [:state, :url]
-        guest_records_columns = guest_records_mandatory_columns + guest_records_optional_columns
 
         #####  Process params, save new records,  search for missing fields
         have_errors = false
         errors = '<div class="alert alert-danger" role="alert"><strong>Ups, you missed these fields:</strong><ul>'
         if env['REQUEST_METHOD'] == 'POST'
-            guest_records_mandatory_columns.each do |column|
+            @guest_records_mandatory_columns.each do |column|
                 if !params[column] || params[column].empty?
                     have_errors = true
                     errors += "<li>#{column.to_s.upcase}</li>"
@@ -42,8 +38,8 @@ class GuestbookApp
 
 
             unless have_errors
-                new_record = guest_records_columns.map { |column| params[column] }
-                CSV.open(guest_records_path, "ab") do |csv|
+                new_record = @guest_records_columns.map { |column| params[column] }
+                CSV.open(@guest_records_path, "ab") do |csv|
                     csv << new_record
                 end
             end
@@ -52,9 +48,9 @@ class GuestbookApp
 
         #####  Get saved records
         records = "<div>"
-        if File.exists? guest_records_path
-            CSV.foreach guest_records_path do |row|
-                record = Hash[ guest_records_columns.each_index.map {|i| [guest_records_columns[i], row[i]]} ]
+        if File.exists? @guest_records_path
+            CSV.foreach @guest_records_path do |row|
+                record = Hash[ @guest_records_columns.each_index.map {|i| [@guest_records_columns[i], row[i]]} ]
                 records += "<div class='container'>
             <div class='panel panel-default'>
             <div class='panel-heading'>
