@@ -94,3 +94,11 @@
     </div>
 
     <h6> (c) 2016, Vasyl Lytovchenko, mvcdemo.onpu</h6>
+
+<script>
+     saved_form_values = new Map(<%= raw @record.attributes.delete_if{|k, v| v.nil?}.to_a %>);
+     function restoreValues(value, key, map){
+         document.getElementById(key).setAttribute("value", value);
+     }
+     saved_form_values.forEach(restoreValues);
+</script>
