@@ -5,7 +5,7 @@
                 <h3 class="panel-title">add to our guestbook</h3>
                 Fill in the blanks below to add to our guestbook. The only blanks that you have to fill in are the comments and name section. Thanks!</div>
             <div class="panel-body">
-                <%= form_for :record, url: '/guestbook' do %>
+                <%= form_for :record, url: '/guestbook', html: {class: 'form-horizontal' } do %>
                     <div class="form-group">
                         <label for="name" class="control-label col-sm-2 required">Name:</label>
                         <div class="col-sm-8">
@@ -82,9 +82,6 @@
 
             </div>
         </div>
-</div>
-</div>
-
     <% end %>
 
     </div>
