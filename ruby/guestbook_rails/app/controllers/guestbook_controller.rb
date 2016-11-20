@@ -1,11 +1,18 @@
 class GuestbookController < ApplicationController
    def index
        @records = Record.all
+       @record = Record.new
    end
 
    def create
-       record = Record.create(record_params)
-       redirect_to action: 'index'
+       @record = Record.new(record_params)
+       if @record.save
+           redirect_to action: 'index'
+       else
+           @records = Record.all
+           render :index
+       end
+
    end
 
    private
